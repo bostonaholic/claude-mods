@@ -1,0 +1,16 @@
+{
+  "name": "bostonaholic-mods",
+  "version": "0.1.0",
+  "description": "Matthew Boston's personal Claude Code mods.",
+  "author": {
+    "name": "Matthew Boston",
+    "url": "https://matthewboston.com"
+  },
+  "repository": "https://github.com/bostonaholic/claude-mods",
+  "license": "MIT",
+  "keywords": [
+    "mods",
+    "hooks",
+    "claude-code"
+  ]
+}

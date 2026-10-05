@@ -1,0 +1,21 @@
+{
+  "name": "bostonaholic-mods",
+  "owner": {
+    "name": "Matthew Boston",
+    "url": "https://matthewboston.com"
+  },
+  "description": "Matthew Boston's personal Claude Code mods.",
+  "plugins": [
+    {
+      "name": "bostonaholic-mods",
+      "source": "./",
+      "description": "Matthew Boston's personal Claude Code mods.",
+      "category": "productivity",
+      "keywords": [
+        "mods",
+        "hooks",
+        "claude-code"
+      ]
+    }
+  ]
+}
