@@ -8,7 +8,7 @@ Mods run code inside Claude Code; read a mod before you enable it.
 
 ```sh
 claude plugin marketplace add bostonaholic/claude-mods
-claude plugin install bostonaholic-mods@bostonaholic-mods
+claude plugin install bostonaholic@claude-mods
 ```
 
 Then run `/reload-plugins` in an open session.
@@ -16,8 +16,8 @@ Then run `/reload-plugins` in an open session.
 Update the marketplace first, then the plugin:
 
 ```sh
-claude plugin marketplace update bostonaholic-mods
-claude plugin update bostonaholic-mods@bostonaholic-mods
+claude plugin marketplace update claude-mods
+claude plugin update bostonaholic@claude-mods
 ```
 
 ## Local development
