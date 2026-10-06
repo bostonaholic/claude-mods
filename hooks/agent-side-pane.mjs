@@ -13,9 +13,16 @@ const START_PROMPT =
 const SPAWN_DESCRIPTION = 'Started from agent pane'
 const TICK_MS = 1000
 
-const ACCENT = '#d97757'
-const SECTION_COLOR = '#8fa3e0'
-const RUNNING_COLOR = '#7fa7d9'
+// Theme keys, not raw colors, so text contrasts with the pane background
+// whichever Claude Code theme draws it; unset color falls back to the
+// terminal's own foreground, which can match a light-theme pane.
+const ACCENT = 'claude'
+const TEXT = 'text'
+// A mid-tone blue reads on light and dark panes alike; the theme's own blue
+// keys resolve to no color in some themes.
+const SECTION_COLOR = '#5b74d6'
+const RUNNING_COLOR = '#5b74d6'
+const ERROR_COLOR = 'error'
 const DOT_COLORS = {
   blue: '#7fa7d9',
   cyan: '#7ec9d6',
@@ -354,7 +361,7 @@ function header({ Box, Text }, runningCount) {
       Box,
       { flexDirection: 'row', gap: 1 },
       h(Text, { color: ACCENT }, '◆'),
-      h(Text, { bold: true }, 'Agents'),
+      h(Text, { bold: true, color: TEXT }, 'Agents'),
       h(Text, { dimColor: true }, 'in this project'),
     ),
     ...running,
@@ -387,7 +394,7 @@ function rowAction({ Box, Button, Text }, name, start, runningSince, now, onStar
 
   const starting = start?.status === 'starting' ? [h(Box, { key: `status:${name}` }, h(Text, { dimColor: true }, 'starting'))] : []
 
-  return [...starting, h(Button, { key: `start:${name}`, label: '▶ run', onPress: onStart })]
+  return [...starting, h(Button, { key: `start:${name}`, label: '▶ run', variant: 'primary', onPress: onStart })]
 }
 
 function agentRow(elements, type, info, onStart) {
@@ -399,7 +406,7 @@ function agentRow(elements, type, info, onStart) {
     summary === '' ? [] : [h(Box, { paddingLeft: 2 }, h(Text, { dimColor: true, wrap: 'truncate-end' }, summary))]
   const failed =
     start?.status === 'failed'
-      ? [h(Box, { key: `status:${name}`, paddingLeft: 2 }, h(Text, { color: 'red' }, `failed: ${start.reason}`))]
+      ? [h(Box, { key: `status:${name}`, paddingLeft: 2 }, h(Text, { color: ERROR_COLOR }, `failed: ${start.reason}`))]
       : []
 
   return h(
@@ -412,7 +419,7 @@ function agentRow(elements, type, info, onStart) {
         Box,
         { flexDirection: 'row', gap: 1, flexShrink: 1 },
         h(Text, { color: dotColor(name, color) }, '●'),
-        h(Text, { bold: true }, name),
+        h(Text, { bold: true, color: TEXT }, name),
         ...modelText,
       ),
       h(Box, { flexDirection: 'row', gap: 1 }, ...rowAction(elements, name, start, runningSince, now, onStart)),
