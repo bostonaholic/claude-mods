@@ -2,7 +2,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import type { Engine, Mounted, Plugin } from 'claude-code/testing'
 import type { AgentOfferInput, AgentSpawnInput, AgentSpawnResult, On, OpEventResult } from 'claude-code'
 
-const PLUGIN = 'bostonaholic-mods'
+const PLUGIN = 'bostonaholic'
 const SURFACES = ['terminal', 'desktop'] as const
 
 type PaneDrawing = Mounted<(typeof SURFACES)[number], 'Pane'>
@@ -92,7 +92,7 @@ const CATALOG_READER: Plugin = {
   name: 'catalog-reader',
   register(on) {
     on('command.run', { command: 'catalog-version' }, async $ => {
-      const { version } = await $.state.get({ plugin: 'bostonaholic-mods', key: 'agentPaneCatalog' })
+      const { version } = await $.state.get({ plugin: 'bostonaholic', key: 'agentPaneCatalog' })
 
       return { text: String(version) }
     })

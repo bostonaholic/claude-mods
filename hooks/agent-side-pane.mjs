@@ -11,8 +11,8 @@ const START_PROMPT =
   'You were started from the agent side pane with no specific task. Do the work your agent definition describes for the current project, then report what you did.'
 const SPAWN_DESCRIPTION = 'Started from agent pane'
 
-const catalog = atom({ plugin: 'bostonaholic-mods', key: 'agentPaneCatalog' }, { isListed: false, types: [] })
-const starts = atom({ plugin: 'bostonaholic-mods', key: 'agentPaneStarts' }, {})
+const catalog = atom({ plugin: 'bostonaholic', key: 'agentPaneCatalog' }, { isListed: false, types: [] })
+const starts = atom({ plugin: 'bostonaholic', key: 'agentPaneStarts' }, {})
 
 /**
  * @param {string} description

@@ -9,7 +9,7 @@ export type AgentPaneStart =
 
 declare module 'claude-code' {
   interface PluginState {
-    'bostonaholic-mods': {
+    'bostonaholic': {
       agentPaneCatalog: AgentPaneCatalog
       agentPaneStarts: Record<string, AgentPaneStart>
     }
