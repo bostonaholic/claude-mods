@@ -1,0 +1,3 @@
+{
+  "modules": ["./agent-side-pane.mjs"]
+}
