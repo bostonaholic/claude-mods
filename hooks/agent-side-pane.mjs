@@ -13,25 +13,28 @@ const START_PROMPT =
 const SPAWN_DESCRIPTION = 'Started from agent pane'
 const TICK_MS = 1000
 
-// Theme keys, not raw colors, so text contrasts with the pane background
-// whichever Claude Code theme draws it; unset color falls back to the
-// terminal's own foreground, which can match a light-theme pane.
+// Theme keys only, never raw colors, so every run follows the person's Claude
+// Code theme: dark, light, their daltonized (color-blind) variants and the
+// ANSI ones that defer to the terminal's own palette. The pane paints the
+// theme's background, so text with no color would fall back to the
+// terminal's foreground and vanish when terminal and theme disagree (a light
+// theme in a dark terminal). Text is drawn in `text`, dim, or `error`; hue
+// marks only glyphs, which the name beside them always explains.
 const ACCENT = 'claude'
 const TEXT = 'text'
-// A mid-tone blue reads on light and dark panes alike; the theme's own blue
-// keys resolve to no color in some themes.
-const SECTION_COLOR = '#5b74d6'
-const RUNNING_COLOR = '#5b74d6'
 const ERROR_COLOR = 'error'
+// The theme's agent colors, as Claude Code draws agents. Blue takes `ide`, the
+// theme's blue in every variant: `blue_FOR_SUBAGENTS_ONLY` draws no color under
+// the ANSI themes.
 const DOT_COLORS = {
-  blue: '#7fa7d9',
-  cyan: '#7ec9d6',
-  yellow: '#e8c46a',
-  orange: '#e08a6a',
-  purple: '#b5a0d0',
-  red: '#e05a6a',
-  green: '#a8c88a',
-  pink: '#e39ac0',
+  blue: 'ide',
+  cyan: 'cyan_FOR_SUBAGENTS_ONLY',
+  yellow: 'yellow_FOR_SUBAGENTS_ONLY',
+  orange: 'orange_FOR_SUBAGENTS_ONLY',
+  purple: 'purple_FOR_SUBAGENTS_ONLY',
+  red: 'red_FOR_SUBAGENTS_ONLY',
+  green: 'green_FOR_SUBAGENTS_ONLY',
+  pink: 'pink_FOR_SUBAGENTS_ONLY',
 }
 const DOT_PALETTE = Object.values(DOT_COLORS)
 
@@ -375,7 +378,7 @@ function sectionHeader({ Box, Text }, section, count, columns) {
   return h(
     Box,
     { key: `section:${section.source}`, flexDirection: 'row', gap: 1, marginTop: 1 },
-    h(Text, { bold: true, color: SECTION_COLOR }, section.label),
+    h(Text, { bold: true, color: TEXT }, section.label),
     h(Text, { dimColor: true }, caption),
     h(Box, { flexGrow: 1 }, h(Text, { dimColor: true, wrap: 'truncate-end' }, '─'.repeat(ruleWidth))),
   )
@@ -387,9 +390,16 @@ function sectionHeader({ Box, Text }, section, count, columns) {
  */
 function rowAction({ Box, Button, Text }, name, start, runningSince, now, onStart) {
   if (runningSince !== null) {
-    const label = runningSince === undefined ? '◌ running' : `◌ running · ${elapsed(now - runningSince)}`
+    const label = runningSince === undefined ? 'running' : `running · ${elapsed(now - runningSince)}`
 
-    return [h(Box, { key: `status:${name}` }, h(Text, { color: RUNNING_COLOR }, label))]
+    return [
+      h(
+        Box,
+        { key: `status:${name}`, flexDirection: 'row', gap: 1 },
+        h(Text, { color: ACCENT }, '◌'),
+        h(Text, { color: TEXT }, label),
+      ),
+    ]
   }
 
   const starting = start?.status === 'starting' ? [h(Box, { key: `status:${name}` }, h(Text, { dimColor: true }, 'starting'))] : []
