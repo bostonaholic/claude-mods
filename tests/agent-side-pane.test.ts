@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'claude-code/testing'
+import { describe, expect, mock, test } from 'claude-code/testing'
 import type { Engine, Mounted, Plugin } from 'claude-code/testing'
 import type { AgentOfferInput, AgentSpawnInput, AgentSpawnResult, On, OpEventResult } from 'claude-code'
 
@@ -39,6 +39,7 @@ function offerOf(agent: string, description: string, source = 'built-in'): Agent
 // Answers the ops the plugin calls whose answers no test asserts.
 function answerUnassertedOps(on: On) {
   on('ui.log', () => ({ value: undefined }))
+  mock.clock(on)
 }
 
 // Answers each offer with the next row's `isOffered`, in the order the test raises them.
@@ -67,8 +68,33 @@ async function rowKeys(ui: PaneDrawing) {
   return (await ui.findAll({ type: 'Box' })).map(box => box.key).filter(key => key?.startsWith('row:'))
 }
 
+type Drawn = { type?: string; text?: string; children?: unknown[] }
+
+// The texts of the Text elements under one drawn element, in document order.
+function textsIn(node: unknown): string[] {
+  if (typeof node !== 'object' || node === null) {
+    return []
+  }
+  const element = node as Drawn
+  if (element.type === 'Text') {
+    return [element.text ?? (element.children ?? []).filter(child => typeof child === 'string').join('')]
+  }
+  return (element.children ?? []).flatMap(textsIn)
+}
+
+// The texts of the note, the empty state and each row, in drawing order,
+// leaving out the colored dot that leads every row.
 async function shownTexts(ui: PaneDrawing) {
-  return (await ui.findAll({ type: 'Text' })).map(text => text.text)
+  const scopes = ['note', 'empty', ...((await rowKeys(ui)) as string[])]
+  const texts: string[] = []
+  for (const scope of scopes) {
+    texts.push(...textsIn(await ui.find({ key: scope })))
+  }
+  return texts.filter(text => text !== '●')
+}
+
+async function sectionKeys(ui: PaneDrawing) {
+  return (await ui.findAll({ type: 'Box' })).map(box => box.key).filter(key => key?.startsWith('section:'))
 }
 
 async function textOf(ui: PaneDrawing, key: string) {
@@ -103,7 +129,7 @@ async function catalogVersion($: Engine) {
   return (await $.command.run({ command: 'catalog-version', args: '', origin: COMMAND_ORIGIN, presentation: PRESENTATION })).text
 }
 
-describe('slice 1: open the pane and list the offered agent types', () => {
+describe('opening the pane and listing offered agent types', () => {
   const OPEN_CASES: readonly { label: string; args: string; answer: OpEventResult<'ui.open'>; text: RegExp }[] = [
     {
       label: 'placed',
@@ -299,16 +325,24 @@ describe('slice 1: open the pane and list the offered agent types', () => {
   })
 })
 
-describe('slice 2: start an agent from its row', () => {
+describe('starting an agent from its row', () => {
   const START_CASES = [
     { surface: 'terminal', name: 'Explore', start: 'start:Explore', status: 'status:Explore' },
     { surface: 'desktop', name: 'Plan', start: 'start:Plan', status: 'status:Plan' },
   ] as const
 
-  test('Start spawns the pressed type with the fixed prompt and shows started', async ($, on) => {
+  test('Start spawns the pressed type with the fixed prompt and shows it running', async ($, on) => {
     answerUnassertedOps(on)
     on('agent.offer', () => ({ isOffered: true }))
     const spawned: { subagent_type: unknown; prompt: string; description: string }[] = []
+    on('agent.list', () => ({
+      value: spawned.map((spawn, index) => ({
+        id: `agent-${index}`,
+        description: SPAWN_DESCRIPTION,
+        type: String(spawn.subagent_type),
+        status: 'running',
+      })),
+    }))
     on('agent.spawn', (_$, e) => {
       // The kit hands the mod's spawn to the hook beneath in the Agent tool's shape.
       const input = e as unknown as Record<string, unknown>
@@ -328,7 +362,8 @@ describe('slice 2: start an agent from its row', () => {
         prompt: expect.stringMatching(/\S/),
         description: SPAWN_DESCRIPTION,
       })
-      expect(await textOf(ui, row.status)).toBe('started')
+      expect(await textOf(ui, row.status)).toMatch(/^◌ running( · \d+s)?$/)
+      expect(await ui.find({ key: row.start })).toBeUndefined()
       await ui.unmount()
     }
   })
@@ -411,7 +446,7 @@ describe('slice 2: start an agent from its row', () => {
   })
 })
 
-describe('slice 3: list custom agent types before the first prompt', () => {
+describe('listing custom agent types before the first prompt', () => {
   const USAGE_CASES: readonly {
     label: string
     answer: OpEventResult<'session.usage'>
@@ -540,4 +575,64 @@ describe('slice 3: list custom agent types before the first prompt', () => {
       }
     })
   }
+})
+
+describe('grouping and toggling the pane', () => {
+  const REVIEWER_FILE = '---\nname: code-reviewer\ndescription: Reviews the diff\nmodel: sonnet\ncolor: blue\n---\nBody'
+
+  test('rows group by source in project, user, plugin, built-in order with the model from the agent file', async ($, on) => {
+    answerUnassertedOps(on)
+    on('ui.open', () => ({ value: { isPlaced: true } }))
+    on('env.get', () => ({ value: '/home/person' }))
+    // The engine resolves the project's relative path against the session cwd.
+    on('fs.list', (_$, e) =>
+      e.path.endsWith('/.claude/agents') && !e.path.startsWith('/home/person/')
+        ? { value: [{ name: 'reviewer.md', kind: 'file', size: 1, mtimeMs: 0, isLink: false }] }
+        : { value: [] },
+    )
+    on('fs.read', () => ({ value: REVIEWER_FILE }))
+    const offers: readonly OfferRow[] = [
+      { agent: 'Explore', description: 'Explores the codebase', source: 'built-in', isOffered: true },
+      { agent: 'team:planner', description: 'Plans the work', source: 'plugin', isOffered: true },
+      { agent: 'oracle', description: 'Thinks hard', source: 'userSettings', isOffered: true },
+      { agent: 'code-reviewer', description: 'Reviews the diff', source: 'projectSettings', isOffered: true },
+    ]
+    answerOffersInOrder(on, offers)
+    await raiseInOrder($, offers)
+    await runAgentPane($)
+
+    for (const surface of SURFACES) {
+      const ui = await mountPane($, surface)
+      expect(await sectionKeys(ui)).toEqual([
+        'section:projectSettings',
+        'section:userSettings',
+        'section:plugin',
+        'section:built-in',
+      ])
+      expect(await rowKeys(ui)).toEqual(['row:code-reviewer', 'row:oracle', 'row:team:planner', 'row:Explore'])
+      expect(textsIn(await ui.find({ key: 'row:code-reviewer' }))).toEqual(['●', 'code-reviewer', 'sonnet', 'Reviews the diff'])
+      await ui.unmount()
+    }
+  })
+
+  test('/agent-pane closes the pane when it is shown', async ($, on) => {
+    answerUnassertedOps(on)
+    const opened: unknown[] = []
+    const closed: unknown[] = []
+    on('ui.panes', () => ({ value: [{ id: 'agent-pane', title: 'Agents', isShown: true, isFocused: true, isPlaced: true }] }))
+    on('ui.open', (_$, e) => {
+      opened.push(e)
+      return { value: { isPlaced: true } }
+    })
+    on('ui.close', (_$, e) => {
+      closed.push(e)
+      return { value: undefined }
+    })
+
+    const answer = await runAgentPane($)
+
+    expect(answer.text).toBe('Closed the agent pane.')
+    expect(closed).toEqual([expect.objectContaining({ id: 'agent-pane' })])
+    expect(opened).toEqual([])
+  })
 })
