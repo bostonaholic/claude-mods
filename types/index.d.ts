@@ -2,8 +2,16 @@ export type AgentPaneType = { name: string; summary: string }
 
 export type AgentPaneCatalog = { isListed: boolean; types: AgentPaneType[] }
 
+export type AgentPaneStart =
+  | { status: 'starting' }
+  | { status: 'started'; agentId?: string }
+  | { status: 'failed'; reason: string }
+
 declare module 'claude-code' {
   interface PluginState {
-    'bostonaholic-mods': { agentPaneCatalog: AgentPaneCatalog }
+    'bostonaholic-mods': {
+      agentPaneCatalog: AgentPaneCatalog
+      agentPaneStarts: Record<string, AgentPaneStart>
+    }
   }
 }
