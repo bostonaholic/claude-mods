@@ -6,6 +6,7 @@ const COMMAND = 'agent-pane'
 const SUMMARY_MAX_CHARS = 160
 const OFFERED_EMPTY = 'No agent types are offered in this session.'
 const FIRST_PROMPT_EMPTY = 'No agent types yet. They appear after your first prompt.'
+const NOTE = 'Custom agents only. Built-in agents and descriptions appear after your first prompt.'
 const START_PROMPT =
   'You were started from the agent side pane with no specific task. Do the work your agent definition describes for the current project, then report what you did.'
 const SPAWN_DESCRIPTION = 'Started from agent pane'
@@ -58,6 +59,38 @@ function applyOffer(current, { name, summary, isOffered }) {
 /** @param {unknown} error */
 function reasonOf(error) {
   return error instanceof Error ? error.message : String(error)
+}
+
+/**
+ * @param {import('claude-code').SessionUsage} usage
+ * @returns {string[]} the custom agent type names, in breakdown order
+ */
+function usageAgentNames(usage) {
+  const agents = usage.context.breakdown?.agents
+  if (!Array.isArray(agents)) {
+    return []
+  }
+
+  return agents.map(agent => agent.agentType).filter(name => typeof name === 'string' && name !== '')
+}
+
+/**
+ * The engine offers no agent listing before the first prompt, and the usage
+ * breakdown is the one source that names custom agent types until then.
+ *
+ * @param {import('claude-code').EngineInterface} $
+ */
+async function readUsageNames($) {
+  let usage
+  try {
+    usage = await $.session.usage({ breakdown: 'summary' })
+  } catch (error) {
+    $.ui.log(`agent pane: reading custom agent types failed: ${reasonOf(error)}`, { to: 'debug' })
+
+    return []
+  }
+
+  return usageAgentNames(usage)
 }
 
 /** @param {import('claude-code').EngineInterface} $ */
@@ -159,6 +192,18 @@ function emptyText(Box, Text, text) {
   return h(Box, { key: 'empty' }, h(Text, { dimColor: true }, text))
 }
 
+function listedBody(Box, Text, types, row) {
+  return types.length === 0 ? [emptyText(Box, Text, OFFERED_EMPTY)] : types.map(row)
+}
+
+function usageBody(Box, Text, names, row) {
+  if (names.length === 0) {
+    return [emptyText(Box, Text, FIRST_PROMPT_EMPTY)]
+  }
+
+  return [h(Box, { key: 'note' }, h(Text, { dimColor: true }, NOTE)), ...names.map(name => row({ name, summary: '' }))]
+}
+
 /** @type {import('claude-code').Register} */
 export const register = on => {
   /** @type {Set<string>} */
@@ -188,13 +233,8 @@ export const register = on => {
     const { Box, Text } = elements
     const { isListed, types } = await read($, catalog)
     const startsByName = await read($, starts)
-    const body = !isListed
-      ? [emptyText(Box, Text, FIRST_PROMPT_EMPTY)]
-      : types.length === 0
-        ? [emptyText(Box, Text, OFFERED_EMPTY)]
-        : types.map(type =>
-            agentRow(elements, type, startsByName[type.name], () => startAgent($, inFlight, type.name)),
-          )
+    const row = type => agentRow(elements, type, startsByName[type.name], () => startAgent($, inFlight, type.name))
+    const body = isListed ? listedBody(Box, Text, types, row) : usageBody(Box, Text, await readUsageNames($), row)
 
     return /** @type {import('claude-code').RenderElement} */ (
       h(Box, { flexDirection: 'column', width: e.props.bodyColumns }, ...body)
